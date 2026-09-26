@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
@@ -10,6 +11,7 @@ from supabase import create_client
 st.set_page_config(page_title="Little Days", page_icon="L", layout="wide")
 
 US_FL_OZ_IN_ML = 29.5735295625
+LOCAL_TIMEZONE = ZoneInfo("America/New_York")
 
 EVENT_TYPES = {
     "feed": "Feed",
@@ -165,7 +167,7 @@ def get_secret(name):
 
 
 def local_now():
-    return datetime.now().astimezone()
+    return datetime.now(LOCAL_TIMEZONE)
 
 
 def daily_encouragement(day=None):
@@ -178,12 +180,12 @@ def render_daily_encouragement():
 
 
 def combine_local(day, clock):
-    return datetime.combine(day, clock).astimezone().isoformat()
+    return datetime.combine(day, clock, tzinfo=LOCAL_TIMEZONE).isoformat()
 
 
 def parse_time(value):
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return parsed.astimezone()
+    return parsed.astimezone(LOCAL_TIMEZONE)
 
 
 def display_time(value):
@@ -436,7 +438,7 @@ def add_forms(client, events):
         else:
             if st.button("Start nap now", type="primary"):
                 try:
-                    add_event(client, {"type": "sleep", "at": now.isoformat()})
+                    add_event(client, {"type": "sleep", "at": local_now().isoformat()})
                     st.success("Nap started.")
                     st.rerun()
                 except Exception as error:
