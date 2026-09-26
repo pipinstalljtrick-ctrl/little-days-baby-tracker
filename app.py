@@ -42,93 +42,114 @@ def apply_styles():
         """
         <style>
         [data-testid="stAppViewContainer"] {
-            background-color: #f3f7f4;
-            background-image: repeating-linear-gradient(
-                180deg,
-                transparent 0,
-                transparent 31px,
-                rgba(53, 91, 72, 0.025) 32px
-            );
+            background: #f4f6f8;
+            color: #202c34;
         }
-        [data-testid="stHeader"] { background: rgba(243, 247, 244, 0.88); }
-        .block-container { max-width: 1160px; padding: 2rem 2rem 3rem; }
+        [data-testid="stHeader"] {
+            background: rgba(244, 246, 248, 0.94);
+            border-bottom: 1px solid #e3e8eb;
+        }
+        .block-container { max-width: 1100px; padding: 2.1rem 2.2rem 3.5rem; }
         h1, h2, h3 { letter-spacing: 0; }
         h1 {
-            color: #29483b;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 2.35rem;
-            font-weight: 600;
+            color: #202c34;
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1.15;
         }
-        h2, h3 { color: #30483d; font-family: "Avenir Next", "Trebuchet MS", sans-serif; }
-        [data-testid="stCaptionContainer"] { color: #6b7e73; }
+        h2, h3 { color: #293d45; font-family: "Avenir Next", "Segoe UI", sans-serif; }
+        [data-testid="stCaptionContainer"] { color: #65747d; }
         .daily-quote {
-            border-left: 3px solid #b85f48;
-            color: #63776c;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 1.05rem;
-            font-style: italic;
-            line-height: 1.55;
-            margin: 0.1rem 0 1.4rem;
+            background: #e7f0ef;
+            border-left: 3px solid #d17a5d;
+            border-radius: 0 5px 5px 0;
+            color: #365b5c;
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            font-size: 0.98rem;
+            font-style: normal;
+            line-height: 1.5;
+            margin: 0.2rem 0 1.5rem;
             max-width: 760px;
-            padding: 0.35rem 0 0.35rem 1rem;
+            padding: 0.7rem 0.95rem;
         }
         [data-testid="stMetric"] {
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid #dce7e0;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(35, 57, 46, 0.04);
-            padding: 1rem 1.1rem;
+            background: #ffffff;
+            border: 1px solid #dfe6e9;
+            border-top: 2px solid #2c7775;
+            border-radius: 6px;
+            padding: 0.95rem 1.05rem;
         }
-        [data-testid="stMetricLabel"] { color: #65796e; font-weight: 600; }
-        [data-testid="stMetricValue"] { color: #29483b; }
+        [data-testid="stMetricLabel"] { color: #65747d; font-weight: 600; }
+        [data-testid="stMetricValue"] { color: #202c34; font-weight: 650; }
         [data-testid="stForm"] {
-            background: rgba(255, 255, 255, 0.94);
-            border: 1px solid #dce7e0;
-            border-radius: 8px;
-            padding: 1.25rem;
+            background: #ffffff;
+            border: 1px solid #dfe6e9;
+            border-radius: 6px;
+            padding: 1.35rem;
         }
         [data-testid="stTabs"] [data-baseweb="tab-list"] {
-            border-bottom: 1px solid #dce7e0;
-            gap: 0.3rem;
+            align-items: center;
+            background: #e8edf0;
+            border: 1px solid #e0e6e9;
+            border-radius: 8px;
+            gap: 0.15rem;
+            padding: 0.25rem;
         }
         [data-testid="stTabs"] [data-baseweb="tab"] {
-            border-radius: 7px 7px 0 0;
-            color: #65796e;
-            padding: 0.65rem 0.95rem;
+            background: transparent;
+            border: 0;
+            border-radius: 6px;
+            color: #5c6c75;
+            min-height: 2.55rem;
+            padding: 0.55rem 0.95rem;
         }
         [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
             background: #ffffff;
-            border: 1px solid #dce7e0;
-            border-bottom-color: #ffffff;
-            color: #29483b;
+            border: 1px solid #d9e1e5;
+            color: #205e60;
+            font-weight: 650;
         }
         [data-testid="stBaseButton-primary"] {
-            background: #b85f48;
-            border-color: #b85f48;
+            background: #287572;
+            border-color: #287572;
             border-radius: 6px;
             color: #ffffff;
             font-weight: 600;
         }
+        [data-testid="stBaseButton-primary"]:hover {
+            background: #205f5d;
+            border-color: #205f5d;
+            color: #ffffff;
+        }
         [data-testid="stBaseButton-secondary"] {
             background: #ffffff;
-            border-color: #d3e0d8;
+            border-color: #d5dfe3;
             border-radius: 6px;
-            color: #30483d;
+            color: #304850;
         }
         [data-testid="stExpander"] {
-            background: rgba(255, 255, 255, 0.86);
-            border: 1px solid #dce7e0;
-            border-radius: 8px;
+            background: #ffffff;
+            border: 1px solid #dfe6e9;
+            border-radius: 6px;
         }
         div[data-baseweb="input"] input,
         div[data-baseweb="select"] > div,
-        textarea { border-radius: 6px; }
-        [data-testid="stDataFrame"] { border: 1px solid #dce7e0; border-radius: 8px; }
+        textarea {
+            background: #ffffff;
+            border-color: #d7e0e4;
+            border-radius: 5px;
+        }
+        div[data-baseweb="input"] input:focus,
+        textarea:focus { border-color: #287572; box-shadow: 0 0 0 1px #287572; }
+        [data-testid="stDataFrame"] { border: 1px solid #dfe6e9; border-radius: 6px; }
+        [data-testid="stAlert"] { border-radius: 6px; }
         @media (max-width: 640px) {
-            .block-container { padding: 1.2rem 0.8rem 2rem; }
-            h1 { font-size: 2rem; }
+            .block-container { padding: 1.25rem 0.9rem 2.5rem; }
+            h1 { font-size: 1.9rem; }
             [data-testid="stForm"] { padding: 1rem; }
-            [data-testid="stTabs"] [data-baseweb="tab"] { padding: 0.55rem 0.65rem; }
+            [data-testid="stTabs"] [data-baseweb="tab-list"] { gap: 0.05rem; }
+            [data-testid="stTabs"] [data-baseweb="tab"] { padding: 0.5rem 0.65rem; }
         }
         </style>
         """,
