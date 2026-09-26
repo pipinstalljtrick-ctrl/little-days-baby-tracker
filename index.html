@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f3ed">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <title>Little Days | Baby tracker</title>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar"><a class="brand" href="#today"><span class="brand-mark">ld</span> little days</a><div class="right"><span id="sync-status" class="sync"><i></i>On this device</span><button id="settings-open" class="icon-button" aria-label="Settings and sharing" title="Settings and sharing">⚙</button></div></header>
+    <main>
+      <section class="greeting"><div><p class="eyebrow" id="today-date"></p><h1><span id="baby-heading">Your little one</span><span class="soft">’s day</span></h1><p class="subhead">One moment at a time. You’re doing a good job.</p></div><button class="button pale" id="export">↓ <span>Export</span></button></section>
+      <nav class="tabs"><button class="tab active" data-view="today">Today</button><button class="tab" data-view="history">History</button><button class="tab" data-view="progress">Progress</button></nav>
+      <section id="today-view" class="view">
+        <div class="summary" id="summary"></div>
+        <section class="quick"><p class="eyebrow">Quick log</p><h2>What just happened?</h2><div class="actions"><button class="action" data-action="feed"><i class="feed-icon">＋</i><span><b>Feed</b><small>Breast or bottle</small></span></button><button class="action" data-action="sleep"><i class="sleep-icon">◷</i><span><b id="sleep-label">Start sleep</b><small id="sleep-detail">Log a nap</small></span></button><button class="action" data-action="diaper"><i class="diaper-icon">✳</i><span><b>Diaper</b><small>Wet or dirty</small></span></button><button class="action" data-action="note"><i class="note-icon">✎</i><span><b>Note</b><small>A little detail</small></span></button></div></section>
+        <div class="columns"><section><div class="section-head"><div><p class="eyebrow">So far today</p><h2>Recent moments</h2></div><button class="text-button" data-goto="history">See all →</button></div><div id="today-list" class="timeline"></div></section><aside class="reminder"><span>✿</span><p class="eyebrow">A gentle reminder</p><p>Every feed, cuddle, and quiet moment counts. There’s no perfect way through today.</p></aside></div>
+      </section>
+      <section id="history-view" class="view hidden"><div class="section-head history-head"><div><p class="eyebrow">The little things add up</p><h2>Recent history</h2></div><label class="filter">Show <select id="filter"><option value="all">Everything</option><option value="feed">Feeds</option><option value="sleep">Sleep</option><option value="diaper">Diapers</option><option value="note">Notes</option><option value="growth">Growth</option></select></label></div><div id="history-list" class="history"></div></section>
+      <section id="progress-view" class="view hidden"><div class="section-head"><div><p class="eyebrow">No scores, just a record</p><h2>A week at a glance</h2></div><button class="button pale" id="add-weight">＋ <span>Add weight</span></button></div><div class="progress-grid"><section class="panel"><p class="eyebrow">Daily rhythm</p><h3>Past 7 days</h3><div id="chart" class="chart"></div><p class="legend"><i></i> Feeds <i class="sleep-legend"></i> Sleep hours</p></section><section class="panel"><p class="eyebrow">Growing, their own way</p><h3>Weight notes</h3><div id="weights" class="weights"></div></section></div><p class="footnote">These notes are for your family. For questions about feeding, sleep, or growth, check with your baby’s clinician.</p></section>
+    </main>
+    <footer><span>Little Days</span><span>Made for the moments in between.</span></footer>
+  </div>
+  <dialog id="entry-dialog" class="modal"><form id="entry-form" method="dialog"><div class="modal-head"><div><p class="eyebrow">Quick log</p><h2 id="entry-title">Add a moment</h2></div><button type="button" class="icon-button" data-close aria-label="Close">×</button></div><div id="fields" class="fields"></div><div class="modal-actions"><button type="button" class="button quiet" data-close>Cancel</button><button class="button primary">Save moment →</button></div></form></dialog>
+  <dialog id="settings-dialog" class="modal settings"><form id="settings-form" method="dialog"><div class="modal-head"><div><p class="eyebrow">Your family space</p><h2>Settings & sharing</h2></div><button type="button" class="icon-button" data-close aria-label="Close">×</button></div><label class="field">Baby’s name<input id="baby-name" maxlength="32" placeholder="e.g. Rowan"></label><div class="cloud"><p class="eyebrow">Share between caregivers</p><p class="help">Connect Supabase to sync across devices. Both caregivers can sign in to the same family account. Without it, entries stay in this browser.</p><label class="field">Project URL<input id="project-url" type="url" placeholder="https://your-project.supabase.co"></label><label class="field">Public anon key<input id="project-key" type="password" placeholder="Paste your project's anon/public key"></label><div class="auth-fields"><label class="field">Email<input id="email" type="email" placeholder="you@example.com" autocomplete="email"></label><label class="field">Password<input id="password" type="password" autocomplete="current-password"></label></div><div class="auth-actions"><button id="sign-in" type="button" class="button primary">Sign in</button><button id="sign-up" type="button" class="button pale">Create account</button><button id="sign-out" type="button" class="button quiet hidden">Sign out</button></div><p id="cloud-message" role="status"></p><a class="setup-link" href="README.md#shared-sync" target="_blank">Setup instructions and database schema ↗</a></div><div class="modal-actions"><button type="button" class="button quiet" data-close>Done</button><button class="button primary">Save settings →</button></div></form></dialog>
+  <script src="app.js" defer></script><script>if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./service-worker.js').catch(()=>{});</script>
+</body>
+</html>
