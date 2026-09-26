@@ -379,11 +379,13 @@ def render_progress(events):
     now = local_now()
     days = [now.date() - timedelta(days=index) for index in range(6, -1, -1)]
     feed_counts = []
+    diaper_counts = []
     sleep_hours = []
     for day in days:
         day_start = datetime.combine(day, time.min).astimezone()
         day_end = day_start + timedelta(days=1)
         feed_counts.append(sum(item["type"] == "feed" and parse_time(item["at"]).date() == day for item in events))
+        diaper_counts.append(sum(item["type"] == "diaper" and parse_time(item["at"]).date() == day for item in events))
         seconds = 0
         for item in events:
             if item["type"] != "sleep":
@@ -393,12 +395,20 @@ def render_progress(events):
             seconds += max(0, (min(nap_end, day_end) - max(nap_start, day_start)).total_seconds())
         sleep_hours.append(round(seconds / 3600, 1))
 
-    chart_data = pd.DataFrame({"Day": [day.strftime("%a %d") for day in days], "Feeds": feed_counts, "Sleep hours": sleep_hours})
-    left, right = st.columns(2)
-    with left:
+    chart_data = pd.DataFrame({
+        "Day": [day.strftime("%a %d") for day in days],
+        "Feeds": feed_counts,
+        "Diapers": diaper_counts,
+        "Sleep hours": sleep_hours,
+    })
+    feed_chart, diaper_chart, sleep_chart = st.columns(3)
+    with feed_chart:
         st.subheader("Feeds · past 7 days")
         st.bar_chart(chart_data.set_index("Day")[["Feeds"]])
-    with right:
+    with diaper_chart:
+        st.subheader("Diapers · past 7 days")
+        st.bar_chart(chart_data.set_index("Day")[["Diapers"]])
+    with sleep_chart:
         st.subheader("Sleep · past 7 days")
         st.bar_chart(chart_data.set_index("Day")[["Sleep hours"]])
 
