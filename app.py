@@ -19,6 +19,23 @@ EVENT_TYPES = {
     "growth": "Weight",
 }
 
+DAILY_ENCOURAGEMENTS = (
+    "Care is built one small moment at a time.",
+    "You and your baby are learning each other every day.",
+    "A quiet cuddle is a meaningful kind of progress.",
+    "There is no perfect day, only the care you give today.",
+    "Pausing to rest is part of showing up.",
+    "Small routines can make room for reassuring moments.",
+    "Your steady presence matters more than a perfect plan.",
+    "Today can be gentle, even if it is not easy.",
+    "Each new day is another chance to find your rhythm.",
+    "The love is in the ordinary moments, too.",
+    "You do not have to do it all at once.",
+    "A little care, repeated, goes a long way.",
+    "Your best today is enough for today.",
+    "Every family finds its own rhythm.",
+)
+
 
 def apply_styles():
     st.markdown(
@@ -44,6 +61,17 @@ def apply_styles():
         }
         h2, h3 { color: #30483d; font-family: "Avenir Next", "Trebuchet MS", sans-serif; }
         [data-testid="stCaptionContainer"] { color: #6b7e73; }
+        .daily-quote {
+            border-left: 3px solid #b85f48;
+            color: #63776c;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1.05rem;
+            font-style: italic;
+            line-height: 1.55;
+            margin: 0.1rem 0 1.4rem;
+            max-width: 760px;
+            padding: 0.35rem 0 0.35rem 1rem;
+        }
         [data-testid="stMetric"] {
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid #dce7e0;
@@ -117,6 +145,15 @@ def get_secret(name):
 
 def local_now():
     return datetime.now().astimezone()
+
+
+def daily_encouragement(day=None):
+    day = day or local_now().date()
+    return DAILY_ENCOURAGEMENTS[day.toordinal() % len(DAILY_ENCOURAGEMENTS)]
+
+
+def render_daily_encouragement():
+    st.markdown(f'<p class="daily-quote">“{daily_encouragement()}”</p>', unsafe_allow_html=True)
 
 
 def combine_local(day, clock):
@@ -255,6 +292,7 @@ def save_auth(client, response):
 
 def auth_screen(url, anon_key):
     st.title("Little Days")
+    render_daily_encouragement()
     st.caption("A private baby log for each caregiver")
     sign_in, sign_up = st.tabs(["Sign in", "Create account"])
 
@@ -574,6 +612,7 @@ def main():
     anon_key = get_secret("SUPABASE_ANON_KEY").strip()
     if not url or not anon_key:
         st.title("Little Days")
+        render_daily_encouragement()
         st.error("The shared database is not configured yet.")
         st.markdown(
             "For local use, copy `.streamlit/secrets.toml.example` to "
@@ -589,6 +628,7 @@ def main():
 
     client = st.session_state["tracker_client"]
     st.title("Little Days")
+    render_daily_encouragement()
     st.caption(f"Your private baby log · Signed in as {st.session_state.get('tracker_email', '')}")
     top_left, top_right = st.columns([5, 1])
     with top_right:
