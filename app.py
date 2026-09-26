@@ -9,6 +9,8 @@ from supabase import create_client
 
 st.set_page_config(page_title="Little Days", page_icon="L", layout="wide")
 
+US_FL_OZ_IN_ML = 29.5735295625
+
 EVENT_TYPES = {
     "feed": "Feed",
     "sleep": "Sleep",
@@ -16,6 +18,94 @@ EVENT_TYPES = {
     "note": "Note",
     "growth": "Weight",
 }
+
+
+def apply_styles():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"] {
+            background-color: #f3f7f4;
+            background-image: repeating-linear-gradient(
+                180deg,
+                transparent 0,
+                transparent 31px,
+                rgba(53, 91, 72, 0.025) 32px
+            );
+        }
+        [data-testid="stHeader"] { background: rgba(243, 247, 244, 0.88); }
+        .block-container { max-width: 1160px; padding: 2rem 2rem 3rem; }
+        h1, h2, h3 { letter-spacing: 0; }
+        h1 {
+            color: #29483b;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 2.35rem;
+            font-weight: 600;
+        }
+        h2, h3 { color: #30483d; font-family: "Avenir Next", "Trebuchet MS", sans-serif; }
+        [data-testid="stCaptionContainer"] { color: #6b7e73; }
+        [data-testid="stMetric"] {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #dce7e0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(35, 57, 46, 0.04);
+            padding: 1rem 1.1rem;
+        }
+        [data-testid="stMetricLabel"] { color: #65796e; font-weight: 600; }
+        [data-testid="stMetricValue"] { color: #29483b; }
+        [data-testid="stForm"] {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid #dce7e0;
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            border-bottom: 1px solid #dce7e0;
+            gap: 0.3rem;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"] {
+            border-radius: 7px 7px 0 0;
+            color: #65796e;
+            padding: 0.65rem 0.95rem;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
+            background: #ffffff;
+            border: 1px solid #dce7e0;
+            border-bottom-color: #ffffff;
+            color: #29483b;
+        }
+        [data-testid="stBaseButton-primary"] {
+            background: #b85f48;
+            border-color: #b85f48;
+            border-radius: 6px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        [data-testid="stBaseButton-secondary"] {
+            background: #ffffff;
+            border-color: #d3e0d8;
+            border-radius: 6px;
+            color: #30483d;
+        }
+        [data-testid="stExpander"] {
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px solid #dce7e0;
+            border-radius: 8px;
+        }
+        div[data-baseweb="input"] input,
+        div[data-baseweb="select"] > div,
+        textarea { border-radius: 6px; }
+        [data-testid="stDataFrame"] { border: 1px solid #dce7e0; border-radius: 8px; }
+        @media (max-width: 640px) {
+            .block-container { padding: 1.2rem 0.8rem 2rem; }
+            h1 { font-size: 2rem; }
+            [data-testid="stForm"] { padding: 1rem; }
+            [data-testid="stTabs"] [data-baseweb="tab"] { padding: 0.55rem 0.65rem; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def get_secret(name):
@@ -42,6 +132,23 @@ def display_time(value):
     return parse_time(value).strftime("%b %-d, %-I:%M %p")
 
 
+def event_time_label(event):
+    start_value = event.get("start")
+    end_value = event.get("end")
+    if event["type"] != "feed" or not start_value or not end_value:
+        return display_time(event["at"])
+
+    start = parse_time(start_value)
+    end = parse_time(end_value)
+    start_label = display_time(start.isoformat())
+    end_label = end.strftime("%-I:%M %p") if start.date() == end.date() else display_time(end.isoformat())
+    return f"{start_label} – {end_label}"
+
+
+def format_ounces(value):
+    return f"{round(float(value), 1):.1f}".rstrip("0").rstrip(".")
+
+
 def event_title(event):
     if event["type"] == "feed":
         return "Feed"
@@ -57,10 +164,17 @@ def event_title(event):
 def event_detail(event, now=None):
     if event["type"] == "feed":
         details = [event.get("method"), event.get("side")]
-        if event.get("minutes"):
+        if event.get("start") and event.get("end"):
+            minutes = round((parse_time(event["end"]) - parse_time(event["start"])).total_seconds() / 60)
+            if minutes:
+                details.append(f"{minutes} min")
+        elif event.get("minutes"):
             details.append(f"{event['minutes']} min")
-        if event.get("volume"):
-            details.append(f"{event['volume']} ml")
+        if event.get("volume_oz") is not None:
+            details.append(f"{format_ounces(event['volume_oz'])} fl oz")
+        elif event.get("volume") is not None:
+            legacy_ounces = float(event["volume"]) / US_FL_OZ_IN_ML
+            details.append(f"{format_ounces(legacy_ounces)} fl oz")
         return " · ".join(item for item in details if item) or "Feed logged"
     if event["type"] == "sleep":
         if not event.get("end"):
@@ -187,28 +301,58 @@ def add_forms(client, events):
     with feed_tab:
         with st.form("feed_form"):
             method = st.radio("How did baby feed?", ["Breast", "Bottle", "Mixed"], horizontal=True)
+            started = now - timedelta(minutes=20)
+            left, right = st.columns(2)
+            start_day = left.date_input("Started", value=started.date(), key="feed_start_day")
+            start_clock = left.time_input(
+                "Start time",
+                value=started.time().replace(second=0, microsecond=0),
+                key="feed_start_time",
+                format="12h",
+            )
+            end_day = right.date_input("Ended", value=now.date(), key="feed_end_day")
+            end_clock = right.time_input(
+                "End time",
+                value=now.time().replace(second=0, microsecond=0),
+                key="feed_end_time",
+                format="12h",
+            )
             left, right = st.columns(2)
             side = left.selectbox("Side", ["Not noted", "Left", "Right", "Both"])
-            minutes = right.number_input("Duration (minutes)", min_value=0, max_value=300, value=0)
-            left, right = st.columns(2)
-            volume = left.number_input("Bottle amount (ml)", min_value=0, max_value=2000, value=0, step=10)
-            day = right.date_input("Date", value=now.date(), key="feed_date")
-            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="feed_time", format="12h")
+            volume = right.number_input(
+                "Bottle amount (US fl oz)",
+                min_value=0.0,
+                max_value=64.0,
+                value=0.0,
+                step=0.5,
+                format="%.1f",
+            )
             submitted = st.form_submit_button("Save feed", type="primary")
         if submitted:
-            event = {"type": "feed", "at": combine_local(day, clock), "method": method}
-            if side != "Not noted":
-                event["side"] = side
-            if minutes:
-                event["minutes"] = int(minutes)
-            if volume:
-                event["volume"] = int(volume)
-            try:
-                add_event(client, event)
-                st.success("Feed saved to your account.")
-                st.rerun()
-            except Exception as error:
-                st.error(f"Could not save feed: {error}")
+            start_at = combine_local(start_day, start_clock)
+            end_at = combine_local(end_day, end_clock)
+            if parse_time(end_at) <= parse_time(start_at):
+                st.error("End time must be after start time.")
+            else:
+                minutes = round((parse_time(end_at) - parse_time(start_at)).total_seconds() / 60)
+                event = {
+                    "type": "feed",
+                    "at": start_at,
+                    "start": start_at,
+                    "end": end_at,
+                    "minutes": minutes,
+                    "method": method,
+                }
+                if side != "Not noted":
+                    event["side"] = side
+                if volume:
+                    event["volume_oz"] = round(float(volume), 1)
+                try:
+                    add_event(client, event)
+                    st.success("Feed saved to your account.")
+                    st.rerun()
+                except Exception as error:
+                    st.error(f"Could not save feed: {error}")
 
     with sleep_tab:
         ongoing = active_sleep(events)
@@ -295,8 +439,8 @@ def add_forms(client, events):
     with weight_tab:
         with st.form("weight_form"):
             left, right = st.columns(2)
-            weight = left.number_input("Weight", min_value=0.001, value=3.0, step=0.1, format="%.3f")
-            unit = right.selectbox("Unit", ["kg", "lb"])
+            weight = left.number_input("Weight", min_value=0.001, value=7.0, step=0.1, format="%.2f")
+            unit = right.selectbox("Unit", ["lb", "kg"])
             day = st.date_input("Date", value=now.date(), key="weight_date")
             clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="weight_time", format="12h")
             submitted = st.form_submit_button("Save weight", type="primary")
@@ -337,7 +481,7 @@ def render_history(client, events):
     for event in rows:
         with st.container(border=True):
             details, action = st.columns([5, 1])
-            details.markdown(f"**{event_title(event)}**  \n{display_time(event['at'])}  \n{event_detail(event)}")
+            details.markdown(f"**{event_title(event)}**  \n{event_time_label(event)}  \n{event_detail(event)}")
             with action:
                 delete_control(client, event["id"])
 
@@ -372,7 +516,7 @@ def render_today(events):
     if not recent:
         st.info("Nothing logged yet today.")
     for event in recent:
-        st.write(f"**{display_time(event['at'])} · {event_title(event)}**  \n{event_detail(event)}")
+        st.write(f"**{event_time_label(event)} · {event_title(event)}**  \n{event_detail(event)}")
 
 
 def render_progress(events):
@@ -425,6 +569,7 @@ def render_progress(events):
 
 
 def main():
+    apply_styles()
     url = get_secret("SUPABASE_URL").strip()
     anon_key = get_secret("SUPABASE_ANON_KEY").strip()
     if not url or not anon_key:

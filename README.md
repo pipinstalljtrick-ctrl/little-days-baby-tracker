@@ -33,8 +33,9 @@ Anyone can open the deployed app and create an account, but each account sees on
 
 ## Notes
 
-- Feed entries support breast, bottle, or mixed, with optional side, duration, and bottle volume.
+- Feed entries support breast, bottle, or mixed, with start/end times and an automatically calculated duration. Bottle amounts use US fluid ounces; older milliliter entries are converted for display.
 - Naps can be started and ended, or entered as a completed nap from earlier.
+- Weight defaults to pounds, with kilograms available as an alternative.
 - History is saved to Supabase on every change; it is not stored only in Streamlit session state.
 - Use the History tab's importer to bring in a JSON export from the older browser app.
 - The history screen can export a JSON backup.
