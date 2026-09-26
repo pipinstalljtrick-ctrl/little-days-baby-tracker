@@ -193,7 +193,7 @@ def add_forms(client, events):
             left, right = st.columns(2)
             volume = left.number_input("Bottle amount (ml)", min_value=0, max_value=2000, value=0, step=10)
             day = right.date_input("Date", value=now.date(), key="feed_date")
-            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="feed_time")
+            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="feed_time", format="12h")
             submitted = st.form_submit_button("Save feed", type="primary")
         if submitted:
             event = {"type": "feed", "at": combine_local(day, clock), "method": method}
@@ -216,7 +216,7 @@ def add_forms(client, events):
             st.info(f"Nap started {display_time(ongoing['at'])}.")
             with st.form("end_sleep_form"):
                 wake_day = st.date_input("Wake-up date", value=now.date(), key="wake_day")
-                wake_clock = st.time_input("Wake-up time", value=now.time().replace(second=0, microsecond=0), key="wake_clock")
+                wake_clock = st.time_input("Wake-up time", value=now.time().replace(second=0, microsecond=0), key="wake_clock", format="12h")
                 submitted = st.form_submit_button("End nap", type="primary")
             if submitted:
                 end = combine_local(wake_day, wake_clock)
@@ -243,10 +243,10 @@ def add_forms(client, events):
             with st.form("manual_sleep_form"):
                 left, right = st.columns(2)
                 start_day = left.date_input("Started", value=now.date(), key="sleep_start_day")
-                start_clock = right.time_input("Start time", value=now.time().replace(second=0, microsecond=0), key="sleep_start_clock")
+                start_clock = right.time_input("Start time", value=now.time().replace(second=0, microsecond=0), key="sleep_start_clock", format="12h")
                 left, right = st.columns(2)
                 end_day = left.date_input("Woke up", value=now.date(), key="sleep_end_day")
-                end_clock = right.time_input("Wake-up time", value=now.time().replace(second=0, microsecond=0), key="sleep_end_clock")
+                end_clock = right.time_input("Wake-up time", value=now.time().replace(second=0, microsecond=0), key="sleep_end_clock", format="12h")
                 submitted = st.form_submit_button("Save completed nap")
             if submitted:
                 start = combine_local(start_day, start_clock)
@@ -265,7 +265,7 @@ def add_forms(client, events):
         with st.form("diaper_form"):
             change = st.radio("Change", ["Wet", "Dirty", "Both"], horizontal=True)
             day = st.date_input("Date", value=now.date(), key="diaper_date")
-            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="diaper_time")
+            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="diaper_time", format="12h")
             submitted = st.form_submit_button("Save diaper", type="primary")
         if submitted:
             try:
@@ -279,7 +279,7 @@ def add_forms(client, events):
         with st.form("note_form"):
             text = st.text_area("A little detail", placeholder="Something to remember")
             day = st.date_input("Date", value=now.date(), key="note_date")
-            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="note_time")
+            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="note_time", format="12h")
             submitted = st.form_submit_button("Save note", type="primary")
         if submitted:
             if not text.strip():
@@ -298,7 +298,7 @@ def add_forms(client, events):
             weight = left.number_input("Weight", min_value=0.001, value=3.0, step=0.1, format="%.3f")
             unit = right.selectbox("Unit", ["kg", "lb"])
             day = st.date_input("Date", value=now.date(), key="weight_date")
-            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="weight_time")
+            clock = st.time_input("Time", value=now.time().replace(second=0, microsecond=0), key="weight_time", format="12h")
             submitted = st.form_submit_button("Save weight", type="primary")
         if submitted:
             try:
