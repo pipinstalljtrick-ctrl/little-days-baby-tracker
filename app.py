@@ -1,3 +1,4 @@
+import html
 import json
 import uuid
 from datetime import date, datetime, time, timedelta
@@ -11,7 +12,8 @@ from supabase import create_client
 st.set_page_config(page_title="Little Days", page_icon="L", layout="wide")
 
 US_FL_OZ_IN_ML = 29.5735295625
-LOCAL_TIMEZONE = ZoneInfo("America/New_York")
+FALLBACK_TIMEZONE = ZoneInfo("America/New_York")
+HISTORY_PAGE_SIZE = 50
 
 EVENT_TYPES = {
     "feed": "Feed",
@@ -43,115 +45,156 @@ def apply_styles():
     st.markdown(
         """
         <style>
-        [data-testid="stAppViewContainer"] {
-            background: #f4f6f8;
-            color: #202c34;
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
+        :root {
+            --paper: #f5f3ed; --white: #fffefa; --ink: #253b35; --muted: #7c8981; --line: #e7e6dc;
+            --green: #477968; --dark: #315b4d; --mint: #e7f0e8; --peach: #f3e6d8; --blue: #e8edf0;
+            --yellow: #f4efda; --rose: #a66b5c;
         }
-        [data-testid="stHeader"] {
-            background: rgba(244, 246, 248, 0.94);
-            border-bottom: 1px solid #e3e8eb;
+        .stApp, [data-testid="stAppViewContainer"] { background: var(--paper); color: var(--ink); }
+        .stApp, .stApp p, .stApp label, .stApp input, .stApp textarea, .stApp button, .stApp li,
+        .stApp span:not([data-testid="stIconMaterial"]) {
+            font-family: 'DM Sans', sans-serif;
         }
-        .block-container { max-width: 1100px; padding: 2.1rem 2.2rem 3.5rem; }
-        h1, h2, h3 { letter-spacing: 0; }
-        h1 {
-            color: #202c34;
-            font-family: "Avenir Next", "Segoe UI", sans-serif;
-            font-size: 2.2rem;
-            font-weight: 700;
-            line-height: 1.15;
+        [data-testid="stHeader"] { background: transparent; }
+        [data-testid="stAppDeployButton"], .ld-greeting [data-testid="stHeaderActionElements"] { display: none; }
+        /* Streamlit styles headings itself, so the serif needs !important to win. */
+        .stApp h2, .stApp h3, .ld-greeting h1, .ld-greeting h1 span, .ld-section-title,
+        .ld-reminder p:last-child, .ld-reminder p:last-child span {
+            font-family: 'DM Serif Display', Georgia, serif !important; font-weight: 400 !important;
         }
-        h2, h3 { color: #293d45; font-family: "Avenir Next", "Segoe UI", sans-serif; }
-        [data-testid="stCaptionContainer"] { color: #65747d; }
-        .daily-quote {
-            background: #e7f0ef;
-            border-left: 3px solid #d17a5d;
-            border-radius: 0 5px 5px 0;
-            color: #365b5c;
-            font-family: "Avenir Next", "Segoe UI", sans-serif;
-            font-size: 0.98rem;
-            font-style: normal;
-            line-height: 1.5;
-            margin: 0.2rem 0 1.5rem;
-            max-width: 760px;
-            padding: 0.7rem 0.95rem;
+        .block-container { max-width: 1120px; padding: 1.2rem 3rem 3.5rem; }
+        h1, h2, h3 { color: var(--ink); letter-spacing: 0; }
+        .stApp h2, .stApp h3 {
+            font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 1.45rem;
         }
-        [data-testid="stMetric"] {
-            background: #ffffff;
-            border: 1px solid #dfe6e9;
-            border-top: 2px solid #2c7775;
-            border-radius: 6px;
-            padding: 0.95rem 1.05rem;
+        [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: var(--muted); }
+
+        /* Brand bar and greeting */
+        .ld-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            min-height: 52px; border-bottom: 1px solid var(--line); margin-bottom: 0.2rem;
         }
-        [data-testid="stMetricLabel"] { color: #65747d; font-weight: 600; }
-        [data-testid="stMetricValue"] { color: #202c34; font-weight: 650; }
-        [data-testid="stForm"] {
-            background: #ffffff;
-            border: 1px solid #dfe6e9;
-            border-radius: 6px;
-            padding: 1.35rem;
+        .ld-brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--ink); }
+        .ld-mark {
+            width: 30px; height: 30px; display: grid; place-items: center; background: var(--green);
+            color: #fff; border-radius: 50% 50% 45% 50%; font: 13px Georgia, serif;
         }
+        .ld-sync { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+        .ld-sync i { width: 7px; height: 7px; border-radius: 50%; background: #6a9a75; }
+        .ld-greeting { padding: 2rem 0 1.4rem; }
+        .ld-eyebrow {
+            font-size: 10px; letter-spacing: .13em; text-transform: uppercase; font-weight: 700;
+            color: var(--muted); margin: 0 0 8px;
+        }
+        .ld-greeting h1 {
+            font: 44px/1.1 'DM Serif Display', Georgia, serif; font-weight: 400; margin: 0; padding: 0; color: var(--ink);
+        }
+        .ld-soft { color: #a8b4a7; }
+        .ld-subhead { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+
+        /* Tabs: underline style */
         [data-testid="stTabs"] [data-baseweb="tab-list"] {
-            align-items: center;
-            background: #e8edf0;
-            border: 1px solid #e0e6e9;
-            border-radius: 8px;
-            gap: 0.15rem;
-            padding: 0.25rem;
+            gap: 26px; background: transparent; border-bottom: 1px solid var(--line);
         }
         [data-testid="stTabs"] [data-baseweb="tab"] {
-            background: transparent;
-            border: 0;
-            border-radius: 6px;
-            color: #5c6c75;
-            min-height: 2.55rem;
-            padding: 0.55rem 0.95rem;
+            background: transparent; padding: 12px 2px; height: auto; color: #89948d;
         }
-        [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] {
-            background: #ffffff;
-            border: 1px solid #d9e1e5;
-            color: #205e60;
-            font-weight: 650;
+        [data-testid="stTabs"] [data-baseweb="tab"] p { font-size: 13px; font-weight: 600; }
+        [data-testid="stTabs"] [data-baseweb="tab"][aria-selected="true"] { color: var(--ink); }
+        [data-testid="stTabs"] [data-baseweb="tab-highlight"] { background-color: var(--green); height: 2px; }
+        [data-testid="stTabs"] [data-baseweb="tab-border"] { display: none; }
+
+        /* Stat tiles */
+        .ld-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0.4rem 0 1.6rem; }
+        .ld-stat {
+            min-height: 98px; padding: 17px 19px; background: var(--white); border: 1px solid #eeede6;
+            border-radius: 7px; display: flex; align-items: center; justify-content: space-between;
         }
-        [data-testid="stBaseButton-primary"] {
-            background: #287572;
-            border-color: #287572;
-            border-radius: 6px;
-            color: #ffffff;
-            font-weight: 600;
+        .ld-stat .ld-eyebrow { margin: 0 0 5px; font-size: 9px; }
+        .ld-value { font-size: 25px; font-weight: 600; color: var(--ink); }
+        .ld-unit { font-size: 11px; color: var(--muted); margin-left: 4px; font-weight: 500; }
+        .ld-icon {
+            width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; display: grid; place-items: center;
+            font-size: 17px; color: var(--dark); font-style: normal;
         }
-        [data-testid="stBaseButton-primary"]:hover {
-            background: #205f5d;
-            border-color: #205f5d;
-            color: #ffffff;
+        .ld-feed { background: var(--mint); } .ld-bottle { background: var(--peach); }
+        .ld-sleep { background: var(--blue); } .ld-diaper { background: var(--yellow); }
+        .ld-note { background: var(--peach); } .ld-growth { background: var(--mint); }
+
+        /* Timeline of recent moments */
+        .ld-section-title { font: 22px 'DM Serif Display', Georgia, serif; color: var(--ink); margin: 0 0 14px; }
+        .ld-row {
+            display: grid; grid-template-columns: 64px 19px 1fr; gap: 8px; padding: 12px 0;
+            border-top: 1px solid var(--line);
         }
-        [data-testid="stBaseButton-secondary"] {
-            background: #ffffff;
-            border-color: #d5dfe3;
-            border-radius: 6px;
-            color: #304850;
+        .ld-time { font-size: 11px; color: var(--muted); padding-top: 2px; }
+        .ld-marker { display: flex; justify-content: center; position: relative; }
+        .ld-marker:before {
+            content: ''; width: 8px; height: 8px; border: 2px solid var(--green); border-radius: 50%;
+            background: var(--paper); margin-top: 4px; z-index: 1;
         }
-        [data-testid="stExpander"] {
-            background: #ffffff;
-            border: 1px solid #dfe6e9;
-            border-radius: 6px;
+        .ld-row:not(:last-child) .ld-marker:after {
+            content: ''; position: absolute; top: 13px; bottom: -17px; width: 1px; background: #d9ded5;
         }
-        div[data-baseweb="input"] input,
-        div[data-baseweb="select"] > div,
-        textarea {
-            background: #ffffff;
-            border-color: #d7e0e4;
-            border-radius: 5px;
+        .ld-copy b { font-size: 13px; font-weight: 600; }
+        .ld-copy p { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+        .ld-empty { padding: 20px 0; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); }
+        .ld-reminder { background: #ebeee6; padding: 19px 21px; border-radius: 7px; margin-top: 44px; }
+        .ld-reminder > span { display: block; color: #7a9b7f; font-size: 22px; margin-bottom: 12px; }
+        .ld-reminder p:last-child { font: 16px/1.5 'DM Serif Display', Georgia, serif; color: #476355; margin: 0; }
+        .ld-nap-banner {
+            background: var(--blue); color: #3f5561; border-radius: 7px; padding: 12px 16px;
+            font-size: 13px; margin: -0.6rem 0 1.4rem;
         }
-        div[data-baseweb="input"] input:focus,
-        textarea:focus { border-color: #287572; box-shadow: 0 0 0 1px #287572; }
-        [data-testid="stDataFrame"] { border: 1px solid #dfe6e9; border-radius: 6px; }
-        [data-testid="stAlert"] { border-radius: 6px; }
-        @media (max-width: 640px) {
-            .block-container { padding: 1.25rem 0.9rem 2.5rem; }
-            h1 { font-size: 1.9rem; }
+
+        /* History cards */
+        [class*="st-key-history-"] {
+            background: var(--white); border: 1px solid #eeede6 !important; border-radius: 7px; padding: 4px 6px;
+        }
+        .ld-hist { display: flex; align-items: center; gap: 12px; }
+        .ld-hist .ld-icon { width: 30px; height: 30px; flex-basis: 30px; font-size: 13px; }
+        .ld-hist b { font-size: 13px; font-weight: 600; }
+        .ld-hist p { font-size: 12px; color: var(--muted); margin: 2px 0 0; }
+
+        /* Weight rows */
+        .ld-weight { display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--line); }
+        .ld-weight b { font-size: 13px; }
+        .ld-weight span { font-size: 12px; color: var(--muted); }
+
+        /* Forms, inputs, buttons */
+        [data-testid="stForm"], [data-testid="stExpander"] details {
+            background: var(--white); border: 1px solid #eeede6; border-radius: 9px;
+        }
+        [data-testid="stForm"] { padding: 1.4rem; }
+        .stApp label p { color: #59675f; font-size: 12px; font-weight: 600; }
+        [data-testid^="stBaseButton-primary"] {
+            background: var(--green); border-color: var(--green); border-radius: 6px; color: #fff; font-weight: 700;
+        }
+        [data-testid^="stBaseButton-primary"]:hover { background: var(--dark); border-color: var(--dark); color: #fff; }
+        [data-testid^="stBaseButton-secondary"] {
+            background: #e9ece4; border: 0; border-radius: 6px; color: var(--dark); font-weight: 700;
+        }
+        [data-testid^="stBaseButton-secondary"]:hover { background: #dfe6da; color: var(--dark); }
+        [data-testid="stAlert"] { border-radius: 7px; }
+        [data-testid="stVegaLiteChart"] { background: var(--white); border: 1px solid #eeede6; border-radius: 7px; padding: 10px; }
+
+        @media (max-width: 780px) {
+            .block-container { padding: 1rem 1.6rem 3rem; }
+            .ld-stats { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 580px) {
+            .block-container { padding: 0.8rem 1rem 2.5rem; }
+            .ld-greeting { padding: 1.4rem 0 1rem; }
+            .ld-greeting h1 { font-size: 36px; }
+            .ld-sync span { display: none; }
+            .ld-stats { gap: 6px; }
+            .ld-stat { padding: 12px 11px; min-height: 80px; }
+            .ld-value { font-size: 21px; }
+            .ld-stat .ld-icon { display: none; }
+            .ld-reminder { margin-top: 10px; }
+            [data-testid="stTabs"] [data-baseweb="tab-list"] { gap: 18px; }
             [data-testid="stForm"] { padding: 1rem; }
-            [data-testid="stTabs"] [data-baseweb="tab-list"] { gap: 0.05rem; }
-            [data-testid="stTabs"] [data-baseweb="tab"] { padding: 0.5rem 0.65rem; }
         }
         </style>
         """,
@@ -166,8 +209,17 @@ def get_secret(name):
         return ""
 
 
+def local_timezone():
+    # The viewer's browser reports its IANA timezone (e.g. "America/Chicago") with each session.
+    try:
+        name = st.context.timezone
+        return ZoneInfo(name) if name else FALLBACK_TIMEZONE
+    except Exception:
+        return FALLBACK_TIMEZONE
+
+
 def local_now():
-    return datetime.now(LOCAL_TIMEZONE)
+    return datetime.now(local_timezone())
 
 
 def daily_encouragement(day=None):
@@ -175,17 +227,62 @@ def daily_encouragement(day=None):
     return DAILY_ENCOURAGEMENTS[day.toordinal() % len(DAILY_ENCOURAGEMENTS)]
 
 
-def render_daily_encouragement():
-    st.markdown(f'<p class="daily-quote">“{daily_encouragement()}”</p>', unsafe_allow_html=True)
+def flash(message):
+    # st.rerun() discards anything drawn in the current run, so hold the message for the next one.
+    st.session_state["flash_message"] = message
+
+
+def show_flash():
+    message = st.session_state.pop("flash_message", None)
+    if message:
+        st.toast(message)
+
+
+EVENT_ICONS = {"feed": "＋", "sleep": "◷", "diaper": "✳", "note": "✎", "growth": "↗"}
+
+
+def render_brand(email=""):
+    status = f'<span class="ld-sync"><i></i><span>Synced · {html.escape(email)}</span></span>' if email else ""
+    st.markdown(
+        f'<div class="ld-topbar"><div class="ld-brand"><span class="ld-mark">ld</span> little days</div>{status}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_greeting():
+    st.markdown(
+        f'<div class="ld-greeting"><p class="ld-eyebrow">{local_now().strftime("%A, %B %-d")}</p>'
+        '<h1>Your little one<span class="ld-soft">’s day</span></h1>'
+        f'<p class="ld-subhead">{html.escape(daily_encouragement())}</p></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def stat_tile(label, value, unit, icon, tone):
+    unit_html = f'<span class="ld-unit">{unit}</span>' if unit else ""
+    return (
+        f'<div class="ld-stat"><div><p class="ld-eyebrow">{label}</p>'
+        f'<span class="ld-value">{value}</span>{unit_html}</div>'
+        f'<i class="ld-icon ld-{tone}">{icon}</i></div>'
+    )
+
+
+def timeline_row(event):
+    time_label = parse_time(event["at"]).strftime("%-I:%M %p")
+    detail = html.escape(event_detail(event))
+    return (
+        f'<div class="ld-row"><span class="ld-time">{time_label}</span><span class="ld-marker"></span>'
+        f'<div class="ld-copy"><b>{html.escape(event_title(event))}</b><p>{detail}</p></div></div>'
+    )
 
 
 def combine_local(day, clock):
-    return datetime.combine(day, clock, tzinfo=LOCAL_TIMEZONE).isoformat()
+    return datetime.combine(day, clock, tzinfo=local_timezone()).isoformat()
 
 
 def parse_time(value):
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return parsed.astimezone(LOCAL_TIMEZONE)
+    return parsed.astimezone(local_timezone())
 
 
 def display_time(value):
@@ -206,7 +303,7 @@ def event_time_label(event):
 
 
 def format_ounces(value):
-    return f"{round(float(value), 1):.1f}".rstrip("0").rstrip(".")
+    return f"{round(float(value), 1):g}"
 
 
 def event_title(event):
@@ -221,6 +318,22 @@ def event_title(event):
     return "Weight recorded"
 
 
+def feed_ounces(event):
+    if event.get("volume_oz") is not None:
+        return float(event["volume_oz"])
+    if event.get("volume") is not None:
+        return float(event["volume"]) / US_FL_OZ_IN_ML
+    return None
+
+
+def ounces_on(events, day):
+    return sum(
+        feed_ounces(item) or 0
+        for item in events
+        if item["type"] == "feed" and parse_time(item["at"]).date() == day
+    )
+
+
 def event_detail(event, now=None):
     if event["type"] == "feed":
         details = [event.get("method"), event.get("side")]
@@ -230,11 +343,9 @@ def event_detail(event, now=None):
                 details.append(f"{minutes} min")
         elif event.get("minutes"):
             details.append(f"{event['minutes']} min")
-        if event.get("volume_oz") is not None:
-            details.append(f"{format_ounces(event['volume_oz'])} fl oz")
-        elif event.get("volume") is not None:
-            legacy_ounces = float(event["volume"]) / US_FL_OZ_IN_ML
-            details.append(f"{format_ounces(legacy_ounces)} fl oz")
+        ounces = feed_ounces(event)
+        if ounces is not None:
+            details.append(f"{format_ounces(ounces)} oz")
         return " · ".join(item for item in details if item) or "Feed logged"
     if event["type"] == "sleep":
         if not event.get("end"):
@@ -250,6 +361,19 @@ def event_detail(event, now=None):
 
 def active_sleep(events):
     return next((item for item in events if item["type"] == "sleep" and not item.get("end")), None)
+
+
+def sleep_seconds_on(events, day, now):
+    day_start = datetime.combine(day, time.min, tzinfo=local_timezone())
+    day_end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=local_timezone())
+    seconds = 0
+    for item in events:
+        if item["type"] != "sleep":
+            continue
+        nap_start = parse_time(item["at"])
+        nap_end = parse_time(item["end"]) if item.get("end") else now
+        seconds += max(0, (min(nap_end, day_end) - max(nap_start, day_start)).total_seconds())
+    return seconds
 
 
 def load_events(client):
@@ -285,22 +409,28 @@ def remove_event(client, event_id):
     client.table("baby_events").delete().eq("id", event_id).execute()
 
 
-def import_backup(client, backup, existing_ids):
+def event_fingerprint(event):
+    return json.dumps({key: value for key, value in event.items() if key != "id"}, sort_keys=True)
+
+
+def import_backup(client, backup, existing_events):
     if not isinstance(backup, dict) or not isinstance(backup.get("events"), list):
         raise ValueError("This file does not contain a Little Days event history.")
 
+    # Row ids are unique across every account, and RLS hides other accounts' rows, so a backup's
+    # original ids can collide invisibly. Skip duplicates by content and always insert fresh ids.
     imported = []
-    seen = set(existing_ids)
+    seen = {event_fingerprint(event) for event in existing_events}
     for event in backup["events"]:
         if not isinstance(event, dict) or event.get("type") not in EVENT_TYPES or not event.get("at"):
             continue
         parse_time(event["at"])
-        event_id = str(event.get("id") or uuid.uuid4())
-        if event_id in seen:
+        fingerprint = event_fingerprint(event)
+        if fingerprint in seen:
             continue
-        seen.add(event_id)
+        seen.add(fingerprint)
         payload = {key: value for key, value in event.items() if key != "id"}
-        imported.append({"id": event_id, "payload": payload})
+        imported.append({"id": str(uuid.uuid4()), "payload": payload})
 
     for offset in range(0, len(imported), 500):
         client.table("baby_events").insert(imported[offset : offset + 500]).execute()
@@ -314,9 +444,8 @@ def save_auth(client, response):
 
 
 def auth_screen(url, anon_key):
-    st.title("Little Days")
-    render_daily_encouragement()
-    st.caption("A private baby log for each caregiver")
+    render_brand()
+    render_greeting()
     sign_in, sign_up = st.tabs(["Sign in", "Create account"])
 
     with sign_in:
@@ -381,7 +510,7 @@ def add_forms(client, events):
             left, right = st.columns(2)
             side = left.selectbox("Side", ["Not noted", "Left", "Right", "Both"])
             volume = right.number_input(
-                "Bottle amount (US fl oz)",
+                "Bottle amount (oz)",
                 min_value=0.0,
                 max_value=64.0,
                 value=0.0,
@@ -410,7 +539,7 @@ def add_forms(client, events):
                     event["volume_oz"] = round(float(volume), 1)
                 try:
                     add_event(client, event)
-                    st.success("Feed saved to your account.")
+                    flash("Feed saved to your account.")
                     st.rerun()
                 except Exception as error:
                     st.error(f"Could not save feed: {error}")
@@ -431,7 +560,7 @@ def add_forms(client, events):
                     try:
                         updated = {key: value for key, value in ongoing.items() if key != "id"}
                         update_event(client, ongoing["id"], {**updated, "end": end})
-                        st.success("Nap saved to your account.")
+                        flash("Nap saved to your account.")
                         st.rerun()
                     except Exception as error:
                         st.error(f"Could not end nap: {error}")
@@ -439,7 +568,7 @@ def add_forms(client, events):
             if st.button("Start nap now", type="primary"):
                 try:
                     add_event(client, {"type": "sleep", "at": local_now().isoformat()})
-                    st.success("Nap started.")
+                    flash("Nap started.")
                     st.rerun()
                 except Exception as error:
                     st.error(f"Could not start nap: {error}")
@@ -461,7 +590,7 @@ def add_forms(client, events):
                 else:
                     try:
                         add_event(client, {"type": "sleep", "at": start, "end": end})
-                        st.success("Nap saved to your account.")
+                        flash("Nap saved to your account.")
                         st.rerun()
                     except Exception as error:
                         st.error(f"Could not save nap: {error}")
@@ -475,7 +604,7 @@ def add_forms(client, events):
         if submitted:
             try:
                 add_event(client, {"type": "diaper", "change": change, "at": combine_local(day, clock)})
-                st.success("Diaper change saved to your account.")
+                flash("Diaper change saved to your account.")
                 st.rerun()
             except Exception as error:
                 st.error(f"Could not save diaper change: {error}")
@@ -492,7 +621,7 @@ def add_forms(client, events):
             else:
                 try:
                     add_event(client, {"type": "note", "text": text.strip(), "at": combine_local(day, clock)})
-                    st.success("Note saved to your account.")
+                    flash("Note saved to your account.")
                     st.rerun()
                 except Exception as error:
                     st.error(f"Could not save note: {error}")
@@ -508,7 +637,7 @@ def add_forms(client, events):
         if submitted:
             try:
                 add_event(client, {"type": "growth", "weight": float(weight), "unit": unit, "at": combine_local(day, clock)})
-                st.success("Weight note saved to your account.")
+                flash("Weight note saved to your account.")
                 st.rerun()
             except Exception as error:
                 st.error(f"Could not save weight: {error}")
@@ -539,12 +668,23 @@ def render_history(client, events):
     if not rows:
         st.info("No history entries yet.")
         return
-    for event in rows:
-        with st.container(border=True):
-            details, action = st.columns([5, 1])
-            details.markdown(f"**{event_title(event)}**  \n{event_time_label(event)}  \n{event_detail(event)}")
+    limit = st.session_state.get("history_limit", HISTORY_PAGE_SIZE)
+    for event in rows[:limit]:
+        with st.container(border=True, key=f"history-{event['id']}"):
+            details, action = st.columns([5, 1], vertical_alignment="center")
+            details.markdown(
+                f'<div class="ld-hist"><i class="ld-icon ld-{event["type"]}">{EVENT_ICONS.get(event["type"], "•")}</i>'
+                f'<div><b>{html.escape(event_title(event))}</b>'
+                f'<p>{html.escape(event_time_label(event))} · {html.escape(event_detail(event))}</p></div></div>',
+                unsafe_allow_html=True,
+            )
             with action:
                 delete_control(client, event["id"])
+    if len(rows) > limit:
+        st.caption(f"Showing {limit} of {len(rows)} entries")
+        if st.button("Show more", key="history_show_more"):
+            st.session_state["history_limit"] = limit + HISTORY_PAGE_SIZE
+            st.rerun()
 
 
 def render_today(events):
@@ -553,77 +693,85 @@ def render_today(events):
     todays_events = [item for item in events if parse_time(item["at"]).date() == today]
     feeds = sum(item["type"] == "feed" for item in todays_events)
     diapers = sum(item["type"] == "diaper" for item in todays_events)
-    start = datetime.combine(today, time.min).astimezone()
-    end = start + timedelta(days=1)
-    sleep_seconds = 0
-    for item in events:
-        if item["type"] != "sleep":
-            continue
-        nap_start = parse_time(item["at"])
-        nap_end = parse_time(item["end"]) if item.get("end") else now
-        sleep_seconds += max(0, (min(nap_end, end) - max(nap_start, start)).total_seconds())
+    sleep_seconds = sleep_seconds_on(events, today, now)
 
-    feed_metric, sleep_metric, diaper_metric = st.columns(3)
-    feed_metric.metric("Feeds today", feeds)
-    sleep_metric.metric("Sleep today", f"{sleep_seconds / 3600:.1f} hrs")
-    diaper_metric.metric("Diapers today", diapers)
+    st.markdown(
+        '<div class="ld-stats">'
+        + stat_tile("Feeds today", feeds, "", EVENT_ICONS["feed"], "feed")
+        + stat_tile("Bottle today", format_ounces(ounces_on(events, today)), "oz", "◐", "bottle")
+        + stat_tile("Sleep today", f"{sleep_seconds / 3600:.1f}", "hrs", EVENT_ICONS["sleep"], "sleep")
+        + stat_tile("Diapers today", diapers, "", EVENT_ICONS["diaper"], "diaper")
+        + "</div>",
+        unsafe_allow_html=True,
+    )
 
     ongoing = active_sleep(events)
     if ongoing:
-        st.info(f"Nap in progress since {display_time(ongoing['at'])}. End it from the Nap tab.")
+        st.markdown(
+            f'<div class="ld-nap-banner">◷ Nap in progress since {display_time(ongoing["at"])}. '
+            "End it from the Log tab.</div>",
+            unsafe_allow_html=True,
+        )
 
-    st.subheader("Recent moments")
+    timeline, reminder = st.columns([2.6, 1], gap="large")
     recent = todays_events[:6]
-    if not recent:
-        st.info("Nothing logged yet today.")
-    for event in recent:
-        st.write(f"**{event_time_label(event)} · {event_title(event)}**  \n{event_detail(event)}")
+    rows = "".join(timeline_row(event) for event in recent) or '<div class="ld-empty">Nothing logged yet today.</div>'
+    timeline.markdown(
+        f'<p class="ld-eyebrow">So far today</p><p class="ld-section-title">Recent moments</p><div>{rows}</div>',
+        unsafe_allow_html=True,
+    )
+    reminder.markdown(
+        '<div class="ld-reminder"><span>✿</span><p class="ld-eyebrow">A gentle reminder</p>'
+        "<p>Every feed, cuddle, and quiet moment counts. There’s no perfect way through today.</p></div>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_progress(events):
     now = local_now()
     days = [now.date() - timedelta(days=index) for index in range(6, -1, -1)]
     feed_counts = []
+    bottle_ounces = []
     diaper_counts = []
     sleep_hours = []
     for day in days:
-        day_start = datetime.combine(day, time.min).astimezone()
-        day_end = day_start + timedelta(days=1)
         feed_counts.append(sum(item["type"] == "feed" and parse_time(item["at"]).date() == day for item in events))
+        bottle_ounces.append(round(ounces_on(events, day), 1))
         diaper_counts.append(sum(item["type"] == "diaper" and parse_time(item["at"]).date() == day for item in events))
-        seconds = 0
-        for item in events:
-            if item["type"] != "sleep":
-                continue
-            nap_start = parse_time(item["at"])
-            nap_end = parse_time(item["end"]) if item.get("end") else now
-            seconds += max(0, (min(nap_end, day_end) - max(nap_start, day_start)).total_seconds())
-        sleep_hours.append(round(seconds / 3600, 1))
+        sleep_hours.append(round(sleep_seconds_on(events, day, now) / 3600, 1))
 
     chart_data = pd.DataFrame({
         "Day": [day.strftime("%a %d") for day in days],
         "Feeds": feed_counts,
+        "Bottle oz": bottle_ounces,
         "Diapers": diaper_counts,
         "Sleep hours": sleep_hours,
     })
-    feed_chart, diaper_chart, sleep_chart = st.columns(3)
+    feed_chart, ounces_chart = st.columns(2)
     with feed_chart:
         st.subheader("Feeds · past 7 days")
-        st.bar_chart(chart_data.set_index("Day")[["Feeds"]])
+        st.bar_chart(chart_data.set_index("Day")[["Feeds"]], color="#91b49a", x_label="", y_label="", height=220)
+    with ounces_chart:
+        st.subheader("Bottle oz · past 7 days")
+        st.bar_chart(chart_data.set_index("Day")[["Bottle oz"]], color="#d9b99b", x_label="", y_label="", height=220)
+    diaper_chart, sleep_chart = st.columns(2)
     with diaper_chart:
         st.subheader("Diapers · past 7 days")
-        st.bar_chart(chart_data.set_index("Day")[["Diapers"]])
+        st.bar_chart(chart_data.set_index("Day")[["Diapers"]], color="#cdbf86", x_label="", y_label="", height=220)
     with sleep_chart:
         st.subheader("Sleep · past 7 days")
-        st.bar_chart(chart_data.set_index("Day")[["Sleep hours"]])
+        st.bar_chart(chart_data.set_index("Day")[["Sleep hours"]], color="#a9c1cf", x_label="", y_label="", height=220)
 
     st.subheader("Weight notes")
     weights = [item for item in events if item["type"] == "growth"]
     if weights:
-        st.dataframe(
-            [{"Date": display_time(item["at"]), "Weight": f"{item['weight']} {item['unit']}"} for item in weights],
-            hide_index=True,
-            use_container_width=True,
+        st.markdown(
+            "".join(
+                f'<div class="ld-weight"><b>{html.escape(str(item["weight"]))} {html.escape(item["unit"])}</b>'
+                f'<span>{display_time(item["at"])}</span></div>'
+                for item in weights
+            ),
+            unsafe_allow_html=True,
         )
     else:
         st.info("Weight notes will appear here when added.")
@@ -634,8 +782,8 @@ def main():
     url = get_secret("SUPABASE_URL").strip()
     anon_key = get_secret("SUPABASE_ANON_KEY").strip()
     if not url or not anon_key:
-        st.title("Little Days")
-        render_daily_encouragement()
+        render_brand()
+        render_greeting()
         st.error("The shared database is not configured yet.")
         st.markdown(
             "For local use, copy `.streamlit/secrets.toml.example` to "
@@ -650,16 +798,17 @@ def main():
         return
 
     client = st.session_state["tracker_client"]
-    st.title("Little Days")
-    render_daily_encouragement()
-    st.caption(f"Your private baby log · Signed in as {st.session_state.get('tracker_email', '')}")
-    top_left, top_right = st.columns([5, 1])
+    show_flash()
+    render_brand(st.session_state.get("tracker_email", ""))
+    greeting, top_right = st.columns([5, 1], vertical_alignment="bottom")
+    with greeting:
+        render_greeting()
     with top_right:
         if st.button("Sign out"):
             try:
                 client.auth.sign_out()
             finally:
-                for key in ("tracker_client", "tracker_user_id", "tracker_email", "delete_event_id"):
+                for key in ("tracker_client", "tracker_user_id", "tracker_email", "delete_event_id", "flash_message", "history_limit"):
                     st.session_state.pop(key, None)
                 st.rerun()
 
@@ -671,7 +820,6 @@ def main():
 
     today_tab, log_tab, history_tab, progress_tab = st.tabs(["Today", "Log", "History", "Progress"])
     with today_tab:
-        st.caption(local_now().strftime("%A, %B %-d"))
         render_today(events)
     with log_tab:
         st.subheader("Add a moment")
@@ -692,8 +840,8 @@ def main():
             if backup_file and st.button("Import backup", key="import_backup", type="primary"):
                 try:
                     backup = json.loads(backup_file.getvalue())
-                    imported = import_backup(client, backup, {item["id"] for item in events})
-                    st.success(f"Imported {imported} new entries into your account.")
+                    imported = import_backup(client, backup, events)
+                    flash(f"Imported {imported} new entries into your account.")
                     st.rerun()
                 except Exception as error:
                     st.error(f"Could not import backup: {error}")

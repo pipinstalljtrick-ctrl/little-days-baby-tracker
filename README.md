@@ -35,6 +35,7 @@ Anyone can open the deployed app and create an account, but each account sees on
 
 - Feed entries support breast, bottle, or mixed, with start/end times and an automatically calculated duration. Bottle amounts use US fluid ounces; older milliliter entries are converted for display.
 - Naps can be started and ended, or entered as a completed nap from earlier.
+- Times use the viewer's browser timezone, so "today" and the daily charts match the caregiver's local clock wherever they are.
 - Weight defaults to pounds, with kilograms available as an alternative.
 - History is saved to Supabase on every change; it is not stored only in Streamlit session state.
 - Use the History tab's importer to bring in a JSON export from the older browser app.
